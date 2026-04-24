@@ -1,11 +1,14 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
 
 export class CreateAccountDto {
+  @ApiPropertyOptional({ example: 'IDR' })
   @IsOptional()
   @IsString()
-  currency?: string; // default IDR
+  currency?: string;
 
+  @ApiPropertyOptional({ example: 'ACC1234567890' })
   @IsOptional()
   @IsString()
-  accountNumber?: string; // nanti bisa auto generate di service
+  accountNumber?: string;
 }

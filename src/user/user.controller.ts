@@ -1,51 +1,38 @@
+import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-} from '@nestjs/common';
-import { UserService } from './user.service';
-import { CreateUserDto } from './dto/create-user.dto';
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { User } from '@prisma/client';
+import { UserEntity } from './entities/user.entity';
+import { UserService } from './user.service';
 
-@Controller('users')
+@ApiTags('User')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  // ➕ CREATE USER
-  @Post()
-  create(@Body() createUserDto: CreateUserDto): Promise<User> {
-    return this.userService.create(createUserDto);
+  @Get('profile')
+  @ApiOperation({ summary: 'Get the authenticated user profile' })
+  @ApiOkResponse({ type: UserEntity })
+  getProfile(@CurrentUser() user: AuthenticatedUser): Promise<UserEntity> {
+    return this.userService.getProfile(user.id);
   }
 
-  // 📄 GET ALL USERS
-  @Get()
-  findAll(): Promise<User[]> {
-    return this.userService.findAll();
-  }
-
-  // 🔍 GET USER BY ID
-  @Get(':id')
-  findOne(@Param('id') id: string): Promise<User | null> {
-    return this.userService.findOne(id);
-  }
-
-  // ✏️ UPDATE USER
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
+  @Patch('profile')
+  @ApiOperation({ summary: 'Update the authenticated user profile' })
+  @ApiOkResponse({ type: UserEntity })
+  updateProfile(
+    @CurrentUser() user: AuthenticatedUser,
     @Body() updateUserDto: UpdateUserDto,
-  ): Promise<User> {
-    return this.userService.update(id, updateUserDto);
-  }
-
-  // ❌ DELETE USER
-  @Delete(':id')
-  remove(@Param('id') id: string): Promise<User> {
-    return this.userService.remove(id);
+  ): Promise<UserEntity> {
+    return this.userService.updateProfile(user.id, updateUserDto);
   }
 }

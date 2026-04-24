@@ -1,18 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma.service';
-import { Prisma, Transaction } from '@prisma/client';
+import { Transaction, TransactionType } from '@prisma/client';
+import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class TransactionRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(data: Prisma.TransactionCreateInput): Promise<Transaction> {
-    return this.prisma.transaction.create({ data });
-  }
-
   findById(id: string): Promise<Transaction | null> {
     return this.prisma.transaction.findUnique({
       where: { id },
+    });
+  }
+
+  findByIdForUser(userId: string, id: string): Promise<Transaction | null> {
+    return this.prisma.transaction.findFirst({
+      where: {
+        id,
+        OR: [{ fromAccount: { userId } }, { toAccount: { userId } }],
+      },
     });
   }
 
@@ -25,25 +30,92 @@ export class TransactionRepository {
     });
   }
 
-  updateBalance(accountId: string, amount: number) {
-    return this.prisma.account.update({
-      where: { id: accountId },
-      data: {
-        balance: {
-          increment: amount,
+  createDeposit(
+    accountId: string,
+    amount: number,
+    description?: string,
+  ): Promise<Transaction> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.account.update({
+        where: { id: accountId },
+        data: {
+          balance: {
+            increment: amount,
+          },
         },
-      },
+      });
+
+      return tx.transaction.create({
+        data: {
+          toAccount: { connect: { id: accountId } },
+          amount,
+          type: TransactionType.DEPOSIT,
+          description,
+        },
+      });
     });
   }
 
-  decrementBalance(accountId: string, amount: number) {
-    return this.prisma.account.update({
-      where: { id: accountId },
-      data: {
-        balance: {
-          decrement: amount,
+  createWithdraw(
+    accountId: string,
+    amount: number,
+    description?: string,
+  ): Promise<Transaction> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.account.update({
+        where: { id: accountId },
+        data: {
+          balance: {
+            decrement: amount,
+          },
         },
-      },
+      });
+
+      return tx.transaction.create({
+        data: {
+          fromAccount: { connect: { id: accountId } },
+          amount,
+          type: TransactionType.WITHDRAW,
+          description,
+        },
+      });
+    });
+  }
+
+  createTransfer(
+    fromAccountId: string,
+    toAccountId: string,
+    amount: number,
+    description?: string,
+  ): Promise<Transaction> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.account.update({
+        where: { id: fromAccountId },
+        data: {
+          balance: {
+            decrement: amount,
+          },
+        },
+      });
+
+      await tx.account.update({
+        where: { id: toAccountId },
+        data: {
+          balance: {
+            increment: amount,
+          },
+        },
+      });
+
+      return tx.transaction.create({
+        data: {
+          fromAccount: { connect: { id: fromAccountId } },
+          toAccount: { connect: { id: toAccountId } },
+          amount,
+          type: TransactionType.TRANSFER,
+          description,
+        },
+      });
     });
   }
 }

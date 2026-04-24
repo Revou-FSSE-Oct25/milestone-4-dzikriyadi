@@ -1,26 +1,25 @@
 import {
+  ForbiddenException,
   Injectable,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { AccountRepository } from './account.repository';
 import { CreateAccountDto } from './dto/create-account.dto';
+import { UpdateAccountDto } from './dto/update-account.dto';
 import { AccountEntity } from './entities/account.entity';
 
 @Injectable()
 export class AccountService {
   constructor(private readonly accountRepository: AccountRepository) {}
 
-  // generate account number sederhana
   private generateAccountNumber(): string {
-    return 'ACC' + Date.now();
+    return `ACC${Date.now()}`;
   }
 
-  // CREATE ACCOUNT
   async create(userId: string, dto: CreateAccountDto): Promise<AccountEntity> {
     const account = await this.accountRepository.create({
-      accountNumber: dto.accountNumber || this.generateAccountNumber(),
-      currency: dto.currency || 'IDR',
+      accountNumber: dto.accountNumber ?? this.generateAccountNumber(),
+      currency: dto.currency ?? 'IDR',
       balance: 0,
       user: {
         connect: { id: userId },
@@ -30,13 +29,11 @@ export class AccountService {
     return new AccountEntity(account);
   }
 
-  // GET ALL USER ACCOUNTS
   async findAll(userId: string): Promise<AccountEntity[]> {
     const accounts = await this.accountRepository.findByUserId(userId);
-    return accounts.map((acc) => new AccountEntity(acc));
+    return accounts.map((account) => new AccountEntity(account));
   }
 
-  // GET ACCOUNT BY ID
   async findOne(userId: string, id: string): Promise<AccountEntity> {
     const account = await this.accountRepository.findById(id);
 
@@ -51,11 +48,10 @@ export class AccountService {
     return new AccountEntity(account);
   }
 
-  // UPDATE ACCOUNT
   async update(
     userId: string,
     id: string,
-    dto: CreateAccountDto,
+    dto: UpdateAccountDto,
   ): Promise<AccountEntity> {
     await this.findOne(userId, id);
 
@@ -63,7 +59,6 @@ export class AccountService {
     return new AccountEntity(account);
   }
 
-  // DELETE ACCOUNT
   async remove(userId: string, id: string): Promise<AccountEntity> {
     await this.findOne(userId, id);
 

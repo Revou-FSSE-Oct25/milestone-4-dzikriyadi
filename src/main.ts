@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-// import { validationPipeOptions } from './validation/validation-pipe-options';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,6 +17,16 @@ async function bootstrap() {
       },
     }),
   );
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('RevoBank API')
+    .setDescription('Banking API built with NestJS and Prisma')
+    .setVersion('1.0.0')
+    .addBearerAuth()
+    .build();
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('docs', app, swaggerDocument);
+
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

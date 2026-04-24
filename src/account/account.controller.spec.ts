@@ -1,20 +1,43 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { AccountController } from './account.controller';
 import { AccountService } from './account.service';
 
 describe('AccountController', () => {
   let controller: AccountController;
+  let accountService: jest.Mocked<
+    Pick<AccountService, 'create' | 'findAll' | 'findOne' | 'update' | 'remove'>
+  >;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [AccountController],
-      providers: [AccountService],
-    }).compile();
+  beforeEach(() => {
+    accountService = {
+      create: jest.fn(),
+      findAll: jest.fn(),
+      findOne: jest.fn(),
+      update: jest.fn(),
+      remove: jest.fn(),
+    };
 
-    controller = module.get<AccountController>(AccountController);
+    controller = new AccountController(
+      accountService as unknown as AccountService,
+    );
   });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+  it('should pass the authenticated user id to create', async () => {
+    accountService.create.mockResolvedValue({
+      id: 'acc-1',
+      accountNumber: 'ACC123',
+      balance: 0,
+      currency: 'IDR',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await controller.create(
+      { id: 'user-1', email: 'user@revobank.com', role: 'CUSTOMER' as never },
+      { currency: 'IDR' },
+    );
+
+    expect(accountService.create).toHaveBeenCalledWith('user-1', {
+      currency: 'IDR',
+    });
   });
 });

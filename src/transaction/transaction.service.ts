@@ -1,14 +1,15 @@
 import {
-  Injectable,
-  NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
-import { TransactionRepository } from './transaction.repository';
-import { AccountRepository } from 'src/account/account.repository';
-import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { AccountRepository } from '../account/account.repository';
+import { DepositDto } from './dto/deposit.dto';
+import { TransferDto } from './dto/transfer.dto';
+import { WithdrawDto } from './dto/withdraw.dto';
 import { TransactionEntity } from './entities/transaction.entity';
-import { TransactionType } from '@prisma/client';
+import { TransactionRepository } from './transaction.repository';
 
 @Injectable()
 export class TransactionService {
@@ -17,92 +18,101 @@ export class TransactionService {
     private readonly accountRepository: AccountRepository,
   ) {}
 
-  //  DEPOSIT
-  async deposit(userId: string, dto: CreateTransactionDto) {
-    const account = await this.accountRepository.findById(dto.toAccountId!);
+  async deposit(userId: string, dto: DepositDto): Promise<TransactionEntity> {
+    const account = await this.accountRepository.findById(dto.toAccountId);
 
-    if (!account) throw new NotFoundException('Account not found');
-    if (account.userId !== userId)
+    if (!account) {
+      throw new NotFoundException('Account not found');
+    }
+
+    if (account.userId !== userId) {
       throw new ForbiddenException('Access denied');
+    }
 
-    await this.transactionRepository.updateBalance(account.id, dto.amount);
-
-    const transaction = await this.transactionRepository.create({
-      toAccount: { connect: { id: account.id } },
-      amount: dto.amount,
-      type: TransactionType.DEPOSIT,
-      description: dto.description,
-    });
+    const transaction = await this.transactionRepository.createDeposit(
+      account.id,
+      dto.amount,
+      dto.description,
+    );
 
     return new TransactionEntity(transaction);
   }
 
-  // WITHDRAW
-  async withdraw(userId: string, dto: CreateTransactionDto) {
-    const account = await this.accountRepository.findById(dto.fromAccountId!);
+  async withdraw(userId: string, dto: WithdrawDto): Promise<TransactionEntity> {
+    const account = await this.accountRepository.findById(dto.fromAccountId);
 
-    if (!account) throw new NotFoundException('Account not found');
-    if (account.userId !== userId)
+    if (!account) {
+      throw new NotFoundException('Account not found');
+    }
+
+    if (account.userId !== userId) {
       throw new ForbiddenException('Access denied');
+    }
 
     if (account.balance.toNumber() < dto.amount) {
       throw new BadRequestException('Insufficient balance');
     }
 
-    await this.transactionRepository.decrementBalance(account.id, dto.amount);
-
-    const transaction = await this.transactionRepository.create({
-      fromAccount: { connect: { id: account.id } },
-      amount: dto.amount,
-      type: TransactionType.WITHDRAW,
-      description: dto.description,
-    });
+    const transaction = await this.transactionRepository.createWithdraw(
+      account.id,
+      dto.amount,
+      dto.description,
+    );
 
     return new TransactionEntity(transaction);
   }
 
-  // TRANSFER
-  async transfer(userId: string, dto: CreateTransactionDto) {
-    const from = await this.accountRepository.findById(dto.fromAccountId!);
-    const to = await this.accountRepository.findById(dto.toAccountId!);
+  async transfer(userId: string, dto: TransferDto): Promise<TransactionEntity> {
+    const from = await this.accountRepository.findById(dto.fromAccountId);
+    const to = await this.accountRepository.findById(dto.toAccountId);
 
-    if (!from || !to) throw new NotFoundException('Account not found');
+    if (!from || !to) {
+      throw new NotFoundException('Account not found');
+    }
 
-    if (from.userId !== userId) throw new ForbiddenException('Access denied');
+    if (from.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    if (from.id === to.id) {
+      throw new BadRequestException('Cannot transfer to the same account');
+    }
 
     if (from.balance.toNumber() < dto.amount) {
       throw new BadRequestException('Insufficient balance');
     }
 
-    // Ideally pakai transaction DB (atomic)
-    await this.transactionRepository.decrementBalance(from.id, dto.amount);
-    await this.transactionRepository.updateBalance(to.id, dto.amount);
-
-    const transaction = await this.transactionRepository.create({
-      fromAccount: { connect: { id: from.id } },
-      toAccount: { connect: { id: to.id } },
-      amount: dto.amount,
-      type: TransactionType.TRANSFER,
-      description: dto.description,
-    });
+    const transaction = await this.transactionRepository.createTransfer(
+      from.id,
+      to.id,
+      dto.amount,
+      dto.description,
+    );
 
     return new TransactionEntity(transaction);
   }
 
-  // GET ALL TRANSACTIONS
-  async findAll(userId: string) {
+  async findAll(userId: string): Promise<TransactionEntity[]> {
     const transactions = await this.transactionRepository.findByUser(userId);
-    return transactions.map((t) => new TransactionEntity(t));
+    return transactions.map((transaction) => new TransactionEntity(transaction));
   }
 
-  // GET DETAIL
-  async findOne(userId: string, id: string) {
+  async findOne(userId: string, id: string): Promise<TransactionEntity> {
     const transaction = await this.transactionRepository.findById(id);
 
     if (!transaction) {
       throw new NotFoundException('Transaction not found');
     }
 
-    return new TransactionEntity(transaction);
+    const authorizedTransaction = await this.transactionRepository.findByIdForUser(
+      userId,
+      id,
+    );
+
+    if (!authorizedTransaction) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return new TransactionEntity(authorizedTransaction);
   }
 }

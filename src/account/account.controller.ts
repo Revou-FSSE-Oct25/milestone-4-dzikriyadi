@@ -6,66 +6,75 @@ import {
   Param,
   Patch,
   Post,
-  Req,
+  UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface';
 import { AccountService } from './account.service';
 import { CreateAccountDto } from './dto/create-account.dto';
+import { UpdateAccountDto } from './dto/update-account.dto';
 import { AccountEntity } from './entities/account.entity';
-// import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-// import { UseGuards } from '@nestjs/common';
 
+@ApiTags('Accounts')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('accounts')
 export class AccountController {
   constructor(private readonly accountService: AccountService) {}
 
-  // CREATE
   @Post()
-  // @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Create a bank account for the authenticated user' })
+  @ApiCreatedResponse({ type: AccountEntity })
   create(
-    @Req() req: Request,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateAccountDto,
   ): Promise<AccountEntity> {
-    const userId = req['user']?.id;
-    return this.accountService.create(userId, dto);
+    return this.accountService.create(user.id, dto);
   }
 
-  // GET ALL
   @Get()
-  // @UseGuards(JwtAuthGuard)
-  findAll(@Req() req: Request): Promise<AccountEntity[]> {
-    const userId = req['user']?.id;
-    return this.accountService.findAll(userId);
+  @ApiOperation({ summary: 'List all bank accounts owned by the user' })
+  @ApiOkResponse({ type: AccountEntity, isArray: true })
+  findAll(@CurrentUser() user: AuthenticatedUser): Promise<AccountEntity[]> {
+    return this.accountService.findAll(user.id);
   }
 
-  // GET ONE
   @Get(':id')
-  // @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get a specific bank account' })
+  @ApiOkResponse({ type: AccountEntity })
   findOne(
-    @Req() req: Request,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ): Promise<AccountEntity> {
-    const userId = req['user']?.id;
-    return this.accountService.findOne(userId, id);
+    return this.accountService.findOne(user.id, id);
   }
 
-  // UPDATE
   @Patch(':id')
-  // @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Update a bank account' })
+  @ApiOkResponse({ type: AccountEntity })
   update(
-    @Req() req: Request,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
-    @Body() dto: CreateAccountDto,
+    @Body() dto: UpdateAccountDto,
   ): Promise<AccountEntity> {
-    const userId = req['user']?.id;
-    return this.accountService.update(userId, id, dto);
+    return this.accountService.update(user.id, id, dto);
   }
 
-  // DELETE
   @Delete(':id')
-  // @UseGuards(JwtAuthGuard)
-  remove(@Req() req: Request, @Param('id') id: string): Promise<AccountEntity> {
-    const userId = req['user']?.id;
-    return this.accountService.remove(userId, id);
+  @ApiOperation({ summary: 'Delete a bank account' })
+  @ApiOkResponse({ type: AccountEntity })
+  remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ): Promise<AccountEntity> {
+    return this.accountService.remove(user.id, id);
   }
 }
