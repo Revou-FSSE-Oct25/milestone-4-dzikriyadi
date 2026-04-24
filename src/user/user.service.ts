@@ -25,10 +25,9 @@ export class UserService {
   }
 
   private handlePrismaError(error: unknown): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    const prismaError = error as Prisma.PrismaClientKnownRequestError | undefined;
+
+    if (prismaError?.code === 'P2002') {
       throw new ConflictException('Email is already registered');
     }
 

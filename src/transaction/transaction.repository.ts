@@ -35,25 +35,24 @@ export class TransactionRepository {
     amount: number,
     description?: string,
   ): Promise<Transaction> {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.account.update({
+    return this.prisma.$transaction([
+      this.prisma.account.update({
         where: { id: accountId },
         data: {
           balance: {
             increment: amount,
           },
         },
-      });
-
-      return tx.transaction.create({
+      }),
+      this.prisma.transaction.create({
         data: {
           toAccount: { connect: { id: accountId } },
           amount,
           type: TransactionType.DEPOSIT,
           description,
         },
-      });
-    });
+      }),
+    ]).then(([, transaction]) => transaction);
   }
 
   createWithdraw(
@@ -61,25 +60,24 @@ export class TransactionRepository {
     amount: number,
     description?: string,
   ): Promise<Transaction> {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.account.update({
+    return this.prisma.$transaction([
+      this.prisma.account.update({
         where: { id: accountId },
         data: {
           balance: {
             decrement: amount,
           },
         },
-      });
-
-      return tx.transaction.create({
+      }),
+      this.prisma.transaction.create({
         data: {
           fromAccount: { connect: { id: accountId } },
           amount,
           type: TransactionType.WITHDRAW,
           description,
         },
-      });
-    });
+      }),
+    ]).then(([, transaction]) => transaction);
   }
 
   createTransfer(
@@ -88,26 +86,24 @@ export class TransactionRepository {
     amount: number,
     description?: string,
   ): Promise<Transaction> {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.account.update({
+    return this.prisma.$transaction([
+      this.prisma.account.update({
         where: { id: fromAccountId },
         data: {
           balance: {
             decrement: amount,
           },
         },
-      });
-
-      await tx.account.update({
+      }),
+      this.prisma.account.update({
         where: { id: toAccountId },
         data: {
           balance: {
             increment: amount,
           },
         },
-      });
-
-      return tx.transaction.create({
+      }),
+      this.prisma.transaction.create({
         data: {
           fromAccount: { connect: { id: fromAccountId } },
           toAccount: { connect: { id: toAccountId } },
@@ -115,7 +111,7 @@ export class TransactionRepository {
           type: TransactionType.TRANSFER,
           description,
         },
-      });
-    });
+      }),
+    ]).then(([, , transaction]) => transaction);
   }
 }
