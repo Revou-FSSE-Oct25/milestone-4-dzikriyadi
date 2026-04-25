@@ -1,6 +1,6 @@
 # Deployment Link
 
-https://milestone-4-dzikriyadi-production.up.railway.app/doc
+https://milestone-4-dzikriyadi-production.up.railway.app/docs
 
 # RevoBank API
 
